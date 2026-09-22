@@ -1,5 +1,4 @@
 ﻿using System.Runtime.InteropServices;
-
 namespace Core;
 
 public sealed record EnvironmentReport(
@@ -8,19 +7,27 @@ public sealed record EnvironmentReport(
     string ProcessArchitecture,
     string DetectedRid,
     string ReportedRid,
-    string BaseDirectory);
+    string BaseDirectory,
+    string BuildNote); // Додали нове поле
 
 public static class EnvironmentInfo
 {
+    // Додаємо директиви умовної компіляції згідно з методичкою
+#if NET10_0_OR_GREATER
+    const string BuildNote = "збірка під net10.0";
+#else
+    const string BuildNote = "збірка під net8.0";
+#endif
+
     public static EnvironmentReport Collect() => new(
         RuntimeInformation.OSDescription,
         RuntimeInformation.FrameworkDescription,
         RuntimeInformation.ProcessArchitecture.ToString(),
         DetectRid(),
         RuntimeInformation.RuntimeIdentifier,
-        AppContext.BaseDirectory);
+        AppContext.BaseDirectory,
+        BuildNote); // Передаємо значення у record
 
-    // Ручне визначення RID: показує, з чого складається рядок win-x64.
     private static string DetectRid()
     {
         string os =
