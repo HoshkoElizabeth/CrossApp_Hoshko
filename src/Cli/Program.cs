@@ -76,6 +76,11 @@ foreach (ProductDto p in result.Items.Take(5))
 
 PrintErrors(result.Errors);
 
+// Додаткове завдання 3: статистика імпорту одним рядком
+int total = result.Items.Count + result.Errors.Count;
+double errorPercent = total == 0 ? 0 : 100.0 * result.Errors.Count / total;
+Console.WriteLine($"Статистика: усього {total} / прийнято {result.Items.Count} / пропущено {result.Errors.Count} / помилок {errorPercent:F1}%");
+
 return 0;
 
 static void PrintErrors(IReadOnlyList<string> errors)
