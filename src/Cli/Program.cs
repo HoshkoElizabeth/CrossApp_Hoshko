@@ -32,8 +32,10 @@ if (args.Contains("--json") || args.Contains("--env"))
     return 0;
 }
 
-// ---- Лабораторна 3: імпорт товарів (CSV або JSON) ----
-string path = args.Length > 0 ? args[0] : Path.Combine("data", "sample.csv");
+// ---- Лабораторна 3: імпорт даних ----
+bool mixed = args.Contains("--mixed");
+string path = args.FirstOrDefault(a => !a.StartsWith("--"))
+              ?? Path.Combine("data", mixed ? "mixed.csv" : "sample.csv");
 
 if (!File.Exists(path))
 {
@@ -41,6 +43,20 @@ if (!File.Exists(path))
     return 1;
 }
 
+// Додаткове завдання 2: різнорідні рядки (товари + клієнти)
+if (mixed)
+{
+    MixedImportResult m = MixedCsvImporter.Load(path);
+    Console.WriteLine($"Товарів: {m.Products.Count}, клієнтів: {m.Customers.Count}");
+    foreach (ProductDto p in m.Products)
+        Console.WriteLine($"  {p.Id,-6} {p.Name,-28} {p.Price,10:F2}");
+    foreach (CustomerDto c in m.Customers)
+        Console.WriteLine($"  {c.Id,-6} {c.Name,-28} {c.Email ?? "(без email)"}");
+    PrintErrors(m.Errors);
+    return 0;
+}
+
+// Додаткове завдання 1: імпортер за розширенням файлу
 ImportResult<ProductDto>? result = Path.GetExtension(path).ToLowerInvariant() switch
 {
     ".csv" => ProductCsvImporter.Load(path),
@@ -58,11 +74,16 @@ Console.WriteLine($"Завантажено записів: {result.Items.Count}"
 foreach (ProductDto p in result.Items.Take(5))
     Console.WriteLine($"  {p.Id,-6} {p.Name,-28} {p.Price,10:F2}");
 
-if (result.Errors.Count > 0)
-{
-    Console.WriteLine($"Пропущено рядків: {result.Errors.Count}");
-    foreach (string e in result.Errors)
-        Console.WriteLine($"  ! {e}");
-}
+PrintErrors(result.Errors);
 
 return 0;
+
+static void PrintErrors(IReadOnlyList<string> errors)
+{
+    if (errors.Count == 0)
+        return;
+
+    Console.WriteLine($"Пропущено рядків: {errors.Count}");
+    foreach (string e in errors)
+        Console.WriteLine($"  ! {e}");
+}

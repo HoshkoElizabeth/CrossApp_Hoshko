@@ -16,6 +16,7 @@ CrossApp_Hoshko/
   data/
     sample.csv        (товари: 12 коректних + 3 пошкоджені рядки)
     sample.json       (товари у JSON: 4 коректні + 2 пошкоджені елементи)
+    mixed.csv         (товари і клієнти в одному файлі: 6 коректних + 3 пошкоджені рядки)
   src/
     Core/
       Core.csproj
@@ -24,9 +25,11 @@ CrossApp_Hoshko/
         ProductDto.cs
         CustomerDto.cs
         ImportResult.cs
+        MixedImportResult.cs
       Import/
         ProductCsvImporter.cs
         ProductJsonImporter.cs
+        MixedCsvImporter.cs
     Cli/
       Cli.csproj (ProjectReference на Core)
       Program.cs
@@ -38,15 +41,17 @@ CrossApp_Hoshko/
 dotnet build
 ```
 
-## Імпорт товарів
+## Імпорт даних
 
 Запускати з кореня репозиторію. Без аргументів імпортується `data/sample.csv`.
-Імпортер обирається за розширенням файлу: `.csv` або `.json`.
+Імпортер товарів обирається за розширенням файлу: `.csv` або `.json`.
 
 ```
 dotnet run --project src/Cli -f net10.0
 dotnet run --project src/Cli -f net10.0 -- data\sample.json
 dotnet run --project src/Cli -f net10.0 -- шлях\до\файлу.csv
+dotnet run --project src/Cli -f net10.0 -- --mixed
+dotnet run --project src/Cli -f net10.0 -- --mixed шлях\до\файлу.csv
 ```
 
 Код завершення: `0` — імпорт виконано (навіть якщо частину рядків пропущено),
@@ -74,6 +79,12 @@ dotnet run --project src/Cli -f net10.0 -- --json
 - кодування UTF-8;
 - масив об'єктів `{ "id": ..., "name": ..., "price": ... }`, регістр імен властивостей не важливий;
 - елементи з порожнім `id`/`name` або від'ємною ціною пропускаються з повідомленням про помилку.
+
+`data/mixed.csv` (режим `--mixed`):
+- кодування UTF-8, роздільник `;`, без заголовка, рядки з `#` — коментарі;
+- тип рядка визначає перша колонка:
+  - `P;id;name;price` — товар;
+  - `C;id;name;email` — клієнт, email необов'язковий (колонку можна не писати або залишити порожньою).
 
 ## Публікація
 
