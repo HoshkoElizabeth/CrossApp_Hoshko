@@ -32,7 +32,7 @@ if (args.Contains("--json") || args.Contains("--env"))
     return 0;
 }
 
-// ---- Лабораторна 3: імпорт товарів з CSV ----
+// ---- Лабораторна 3: імпорт товарів (CSV або JSON) ----
 string path = args.Length > 0 ? args[0] : Path.Combine("data", "sample.csv");
 
 if (!File.Exists(path))
@@ -41,7 +41,18 @@ if (!File.Exists(path))
     return 1;
 }
 
-ImportResult<ProductDto> result = ProductCsvImporter.Load(path);
+ImportResult<ProductDto>? result = Path.GetExtension(path).ToLowerInvariant() switch
+{
+    ".csv" => ProductCsvImporter.Load(path),
+    ".json" => ProductJsonImporter.Load(path),
+    _ => null
+};
+
+if (result is null)
+{
+    Console.WriteLine($"Непідтримуваний формат файлу: {Path.GetExtension(path)} (очікую .csv або .json)");
+    return 1;
+}
 
 Console.WriteLine($"Завантажено записів: {result.Items.Count}");
 foreach (ProductDto p in result.Items.Take(5))

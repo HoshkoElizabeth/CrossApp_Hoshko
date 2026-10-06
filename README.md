@@ -15,6 +15,7 @@ CrossApp_Hoshko/
   .gitignore
   data/
     sample.csv        (товари: 12 коректних + 3 пошкоджені рядки)
+    sample.json       (товари у JSON: 4 коректні + 2 пошкоджені елементи)
   src/
     Core/
       Core.csproj
@@ -25,6 +26,7 @@ CrossApp_Hoshko/
         ImportResult.cs
       Import/
         ProductCsvImporter.cs
+        ProductJsonImporter.cs
     Cli/
       Cli.csproj (ProjectReference на Core)
       Program.cs
@@ -38,15 +40,17 @@ dotnet build
 
 ## Імпорт товарів
 
-Запускати з кореня репозиторію. Без аргументів імпортується `data/sample.csv`:
+Запускати з кореня репозиторію. Без аргументів імпортується `data/sample.csv`.
+Імпортер обирається за розширенням файлу: `.csv` або `.json`.
 
 ```
 dotnet run --project src/Cli -f net10.0
+dotnet run --project src/Cli -f net10.0 -- data\sample.json
 dotnet run --project src/Cli -f net10.0 -- шлях\до\файлу.csv
 ```
 
 Код завершення: `0` — імпорт виконано (навіть якщо частину рядків пропущено),
-`1` — файл не знайдено.
+`1` — файл не знайдено або формат не підтримується.
 
 ## Інформація про середовище (лаб. 1-2)
 
@@ -55,7 +59,7 @@ dotnet run --project src/Cli -f net10.0 -- --env
 dotnet run --project src/Cli -f net10.0 -- --json
 ```
 
-## Формат файлу даних
+## Формат файлів даних
 
 `data/sample.csv`:
 - кодування UTF-8;
@@ -65,6 +69,11 @@ dotnet run --project src/Cli -f net10.0 -- --json
 - порожні рядки та рядки, що починаються з `#`, ігноруються;
 - ціна — з десятковою **крапкою** (`12.50`), розбирається з `CultureInfo.InvariantCulture`;
   `12,50` вважається помилкою, щоб не перетворитися мовчки на 1250.
+
+`data/sample.json`:
+- кодування UTF-8;
+- масив об'єктів `{ "id": ..., "name": ..., "price": ... }`, регістр імен властивостей не важливий;
+- елементи з порожнім `id`/`name` або від'ємною ціною пропускаються з повідомленням про помилку.
 
 ## Публікація
 
