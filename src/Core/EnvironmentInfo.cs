@@ -14,9 +14,9 @@ public static class EnvironmentInfo
 {
     // Додаємо директиви умовної компіляції згідно з методичкою
 #if NET10_0_OR_GREATER
-    const string BuildNote = "збірка під net10.0";
+    const string BuildNote = "build for net10.0";
 #else
-    const string BuildNote = "збірка під net8.0";
+    const string BuildNote = "build for net8.0";
 #endif
 
     public static EnvironmentReport Collect() => new(
