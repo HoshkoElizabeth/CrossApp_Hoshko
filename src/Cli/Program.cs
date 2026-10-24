@@ -64,6 +64,23 @@ if (args.Contains("--domain"))
     Console.WriteLine("Стан після всіх відмов:");
     Console.WriteLine($"  {order}");
     Console.WriteLine($"  {draft}");
+    Console.WriteLine();
+
+    Console.WriteLine("=== Додаткове 1: ImportResult -> сутності ===");
+    string importPath = args.FirstOrDefault(a => !a.StartsWith("--")) ?? Path.Combine("data", "sample.json");
+    ImportResult<ProductDto>? imported = File.Exists(importPath) ? LoadProducts(importPath) : null;
+    if (imported is null)
+    {
+        Console.WriteLine($"  Файл не знайдено або формат не підтримується: {importPath}");
+    }
+    else
+    {
+        ImportResult<Product> products = Product.FromImport(imported);
+        Console.WriteLine($"  DTO після імпорту: {imported.Items.Count}, сутностей створено: {products.Items.Count}");
+        foreach (Product p in products.Items)
+            Console.WriteLine($"  {p}");
+        PrintErrors(products.Errors);
+    }
 
     return 0;
 }
@@ -93,13 +110,8 @@ if (mixed)
 }
 
 // Додаткове завдання 3(1): імпортер за розширенням файлу
-ImportResult<ProductDto>? result = Path.GetExtension(path).ToLowerInvariant() switch
-{
-    ".csv" => ProductCsvImporter.Load(path),
-    ".json" => ProductJsonImporter.Load(path),
-    _ => null
-};
-
+// Додаткове завдання 1 (лаб. 3): імпортер за розширенням файлу
+ImportResult<ProductDto>? result = LoadProducts(path);
 if (result is null)
 {
     Console.WriteLine($"Непідтримуваний формат файлу: {Path.GetExtension(path)} (очікую .csv або .json)");
@@ -118,6 +130,14 @@ double errorPercent = total == 0 ? 0 : 100.0 * result.Errors.Count / total;
 Console.WriteLine($"Статистика: усього {total} / прийнято {result.Items.Count} / пропущено {result.Errors.Count} / помилок {errorPercent:F1}%");
 
 return 0;
+
+static ImportResult<ProductDto>? LoadProducts(string path) =>
+    Path.GetExtension(path).ToLowerInvariant() switch
+    {
+        ".csv" => ProductCsvImporter.Load(path),
+        ".json" => ProductJsonImporter.Load(path),
+        _ => null
+    };
 
 static void TryDo(string title, Action action)
 {

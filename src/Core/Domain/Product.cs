@@ -35,5 +35,26 @@ public sealed class Product
     public static Product FromDto(ProductDto dto) =>
         Create(dto.Id, dto.Name, dto.Price);
 
+
+    // Додаткове завдання 1: результат імпорту, сутності + рядки, що не пройшли інваріанти.
+    public static ImportResult<Product> FromImport(ImportResult<ProductDto> import)
+    {
+        var items = new List<Product>();
+        var errors = new List<string>(import.Errors);
+
+        foreach (ProductDto dto in import.Items)
+        {
+            try
+            {
+                items.Add(FromDto(dto));
+            }
+            catch (ArgumentException ex)
+            {
+                errors.Add($"запис '{dto.Id}': {ex.Message}");
+            }
+        }
+
+        return new ImportResult<Product>(items, errors);
+    }
     public override string ToString() => $"{Id} {Name} — {Price:F2}";
 }

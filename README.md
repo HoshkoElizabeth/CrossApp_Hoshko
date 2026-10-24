@@ -15,7 +15,7 @@ CrossApp_Hoshko/
   .gitignore
   data/
     sample.csv        (товари: 12 коректних + 3 пошкоджені рядки)
-    sample.json       (товари у JSON: 4 коректні + 2 пошкоджені елементи)
+    sample.json       (товари у JSON: 5 проходять імпорт + 2 пошкоджені; P-107 з назвою з пробілів відхиляє домен)
     mixed.csv         (товари і клієнти в одному файлі: 6 коректних + 3 пошкоджені рядки)
   src/
     Core/
@@ -71,14 +71,19 @@ dotnet run --project src/Cli -f net10.0 -- --mixed шлях\до\файлу.csv
 
 ## Доменна модель (лаб. 4)
 
-```
-dotnet run --project src/Cli -f net10.0 -- --domain
-```
+ ```
+  dotnet run --project src/Cli -f net10.0 -- --domain
+  dotnet run --project src/Cli -f net10.0 -- --domain data\sample.csv
+  ```
 
 Сутності (`src/Core/Domain`):
 - **Order** — замовлення (агрегат): `Create`, `AddLine`, `Confirm`, `ToDto`/`FromDto`;
 - **OrderLine** — рядок замовлення, створюється лише через `Order.AddLine`;
-- **Product** — товар: `Create`, `ToDto`/`FromDto`.
+ - **Product** — товар: `Create`, `ToDto`/`FromDto`, `FromImport` (результат імпорту → сутності + помилки).
+
+  `Product.FromImport` (додаткове завдання 1, лаб4) бере `ImportResult<ProductDto>` і повертає `ImportResult<Product>`:
+  до помилок імпорту додаються записи, що не пройшли інваріанти домену.
+  За замовчуванням у режимі `--domain` береться `data/sample.json`.
 
 Публічних конструкторів немає, стан змінюють лише методи, рядки назовні — `IReadOnlyList`.
 `FromDto` відновлює сутність через ті самі фабрики й методи, тобто ті самі перевірки.
