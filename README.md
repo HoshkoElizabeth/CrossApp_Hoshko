@@ -21,11 +21,17 @@ CrossApp_Hoshko/
     Core/
       Core.csproj
       EnvironmentInfo.cs
-      Dto/
+      Dto/                (формат даних)
         ProductDto.cs
         CustomerDto.cs
+        OrderDto.cs
+        OrderLineDto.cs
         ImportResult.cs
         MixedImportResult.cs
+      Domain/             (сутності з поведінкою та інваріантами)
+        Product.cs
+        Order.cs
+        OrderLine.cs
       Import/
         ProductCsvImporter.cs
         ProductJsonImporter.cs
@@ -62,6 +68,37 @@ dotnet run --project src/Cli -f net10.0 -- --mixed шлях\до\файлу.csv
 
 Код завершення: `0` — імпорт виконано (навіть якщо частину рядків пропущено),
 `1` — файл не знайдено або формат не підтримується.
+
+## Доменна модель (лаб. 4)
+
+```
+dotnet run --project src/Cli -f net10.0 -- --domain
+```
+
+Сутності (`src/Core/Domain`):
+- **Order** — замовлення (агрегат): `Create`, `AddLine`, `Confirm`, `ToDto`/`FromDto`;
+- **OrderLine** — рядок замовлення, створюється лише через `Order.AddLine`;
+- **Product** — товар: `Create`, `ToDto`/`FromDto`.
+
+Публічних конструкторів немає, стан змінюють лише методи, рядки назовні — `IReadOnlyList`.
+`FromDto` відновлює сутність через ті самі фабрики й методи, тобто ті самі перевірки.
+Records тижня 3 (`Dto/`) лишились форматом даних; зв'язок із сутностями — `ToDto`/`FromDto`.
+Domain не залежить ні від `Console`, ні від `File`, ні від проєкту Cli.
+
+### Інваріанти
+
+| Правило | Тип винятку | Де перевіряється |
+|---|---|---|
+| Номер замовлення не порожній | `ArgumentException` | `Order.Create` |
+| Клієнт замовлення не порожній | `ArgumentException` | `Order.Create` |
+| Товар у рядку (Id, назва) не порожній | `ArgumentException` | `Order.AddLine` |
+| Кількість у рядку > 0 | `ArgumentOutOfRangeException` | `Order.AddLine` |
+| Ціна в рядку ≥ 0 | `ArgumentOutOfRangeException` | `Order.AddLine` |
+| Не можна додавати рядки до підтвердженого замовлення | `InvalidOperationException` | `Order.AddLine` |
+| Порожнє замовлення не можна підтвердити | `InvalidOperationException` | `Order.Confirm` |
+| Не можна підтвердити замовлення повторно | `InvalidOperationException` | `Order.Confirm` |
+| Id і назва товару не порожні | `ArgumentException` | `Product.Create` |
+| Ціна товару ≥ 0 | `ArgumentOutOfRangeException` | `Product.Create` |
 
 ## Інформація про середовище (лаб. 1-2)
 
