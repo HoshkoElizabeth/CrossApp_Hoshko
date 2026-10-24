@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using System.Text.Json;
 using Core;
+using Core.Domain;
 using Core.Dto;
 using Core.Import;
 
@@ -32,6 +33,41 @@ if (args.Contains("--json") || args.Contains("--env"))
     return 0;
 }
 
+// ---- Лабораторна 4: доменна модель (--domain) ----
+if (args.Contains("--domain"))
+{
+    Console.WriteLine("=== Сценарій 1: успіх ===");
+    Order order = Order.Create("O-001", "C-001");
+    order.AddLine("P-001", "Ноутбук ASUS VivoBook 15", 24999.99m, 1);
+    order.AddLine("P-002", "Миша бездротова Logitech", 499.50m, 2);
+    Console.WriteLine(order);
+    foreach (OrderLine line in order.Lines)
+        Console.WriteLine($"  {line}");
+    order.Confirm();
+    Console.WriteLine(order);
+
+    OrderDto dto = order.ToDto();
+    Order restored = Order.FromDto(dto);
+    Console.WriteLine($"ToDto -> FromDto: {restored}");
+    Console.WriteLine();
+
+    Console.WriteLine("=== Сценарій 2: порушення інваріантів ===");
+    Order draft = Order.Create("O-002", "C-002");
+    TryDo("порожній номер замовлення", () => Order.Create("  ", "C-001"));
+    TryDo("нульова кількість у рядку", () => draft.AddLine("P-003", "Клавіатура механічна", 1899.00m, 0));
+    TryDo("від'ємна ціна в рядку", () => draft.AddLine("P-004", "Монітор 24\" Full HD", -1m, 1));
+    TryDo("підтвердження порожнього замовлення", () => draft.Confirm());
+    TryDo("рядок до підтвердженого замовлення", () => order.AddLine("P-003", "Клавіатура механічна", 1899.00m, 1));
+    TryDo("повторне підтвердження", () => order.Confirm());
+    TryDo("товар з порожньою назвою", () => Product.Create("P-005", "   ", 100m));
+    TryDo("FromDto: підтверджене без рядків", () => Order.FromDto(new OrderDto("O-003", "C-001", true, [])));
+    Console.WriteLine("Стан після всіх відмов:");
+    Console.WriteLine($"  {order}");
+    Console.WriteLine($"  {draft}");
+
+    return 0;
+}
+
 // ---- Лабораторна 3: імпорт даних ----
 bool mixed = args.Contains("--mixed");
 string path = args.FirstOrDefault(a => !a.StartsWith("--"))
@@ -43,7 +79,7 @@ if (!File.Exists(path))
     return 1;
 }
 
-// Додаткове завдання 2: різнорідні рядки (товари + клієнти)
+// Додаткове завдання 3(2): різнорідні рядки (товари + клієнти)
 if (mixed)
 {
     MixedImportResult m = MixedCsvImporter.Load(path);
@@ -56,7 +92,7 @@ if (mixed)
     return 0;
 }
 
-// Додаткове завдання 1: імпортер за розширенням файлу
+// Додаткове завдання 3(1): імпортер за розширенням файлу
 ImportResult<ProductDto>? result = Path.GetExtension(path).ToLowerInvariant() switch
 {
     ".csv" => ProductCsvImporter.Load(path),
@@ -76,12 +112,25 @@ foreach (ProductDto p in result.Items.Take(5))
 
 PrintErrors(result.Errors);
 
-// Додаткове завдання 3: статистика імпорту одним рядком
+// Додаткове завдання 3(3): статистика імпорту одним рядком
 int total = result.Items.Count + result.Errors.Count;
 double errorPercent = total == 0 ? 0 : 100.0 * result.Errors.Count / total;
 Console.WriteLine($"Статистика: усього {total} / прийнято {result.Items.Count} / пропущено {result.Errors.Count} / помилок {errorPercent:F1}%");
 
 return 0;
+
+static void TryDo(string title, Action action)
+{
+    try
+    {
+        action();
+        Console.WriteLine($"  {title}: виняток НЕ спрацював — інваріант відсутній!");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"  {title}: {ex.GetType().Name} — {ex.Message}");
+    }
+}
 
 static void PrintErrors(IReadOnlyList<string> errors)
 {
