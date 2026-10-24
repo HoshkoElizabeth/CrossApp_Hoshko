@@ -1,4 +1,6 @@
-﻿namespace Core.Domain;
+﻿using Core.Dto;
+
+namespace Core.Domain;
 
 public sealed class Order
 {
@@ -47,6 +49,26 @@ public sealed class Order
                 $"Замовлення {Id} порожнє, підтвердити його неможливо");
 
         IsConfirmed = true;
+    }
+
+    
+    public OrderDto ToDto() => new(
+        Id,
+        CustomerId,
+        IsConfirmed,
+        _lines.Select(l => new OrderLineDto(l.ProductId, l.Name, l.Price, l.Quantity)).ToList());
+
+
+    public static Order FromDto(OrderDto dto)
+    {
+        Order order = Create(dto.Id, dto.CustomerId);
+        foreach (OrderLineDto line in dto.Lines ?? [])
+            order.AddLine(line.ProductId, line.Name, line.Price, line.Quantity);
+
+        if (dto.IsConfirmed)
+            order.Confirm();
+
+        return order;
     }
 
     public override string ToString() =>
