@@ -32,6 +32,7 @@ CrossApp_Hoshko/
         Product.cs
         Order.cs
         OrderLine.cs
+        OrderLimitPolicy.cs
       Import/
         ProductCsvImporter.cs
         ProductJsonImporter.cs
@@ -104,6 +105,7 @@ Domain не залежить ні від `Console`, ні від `File`, ні в�
 | Не можна підтвердити замовлення повторно | `InvalidOperationException` | `Order.Confirm` |
 | Id і назва товару не порожні | `ArgumentException` | `Product.Create` |
 | Ціна товару ≥ 0 | `ArgumentOutOfRangeException` | `Product.Create` |
+| У клієнта не більше 3 незавершених замовлень | `InvalidOperationException` | `OrderLimitPolicy.EnsureCanOpen` |
 
 ## Інформація про середовище (лаб. 1-2)
 

@@ -81,6 +81,22 @@ if (args.Contains("--domain"))
             Console.WriteLine($"  {p}");
         PrintErrors(products.Errors);
     }
+    Console.WriteLine();
+
+    Console.WriteLine($"=== Додаткове 2: не більше {OrderLimitPolicy.MaxDraftOrders} незавершених замовлень клієнта ===");
+    var customerOrders = new List<Order>();
+    for (int i = 1; i <= OrderLimitPolicy.MaxDraftOrders; i++)
+    {
+        OrderLimitPolicy.EnsureCanOpen("C-010", customerOrders);
+        customerOrders.Add(Order.Create($"O-10{i}", "C-010"));
+    }
+    Console.WriteLine($"  Відкрито: {string.Join(", ", customerOrders.Select(o => o.Id))}");
+    TryDo("ще одне замовлення", () => OrderLimitPolicy.EnsureCanOpen("C-010", customerOrders));
+    customerOrders[0].AddLine("P-006", "Веб-камера HD", 899.00m, 1);
+    customerOrders[0].Confirm();
+    OrderLimitPolicy.EnsureCanOpen("C-010", customerOrders);
+    customerOrders.Add(Order.Create("O-104", "C-010"));
+    Console.WriteLine($"  Після підтвердження {customerOrders[0].Id} відкрито O-104");
 
     return 0;
 }
