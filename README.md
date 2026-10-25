@@ -73,19 +73,21 @@ dotnet run --project src/Cli -f net10.0 -- --mixed шлях\до\файлу.csv
 
 ## Доменна модель (лаб. 4)
 
- ```
-  dotnet run --project src/Cli -f net10.0 -- --domain
-  dotnet run --project src/Cli -f net10.0 -- --domain data\sample.csv
-  ```
+```
+dotnet run --project src/Cli -f net10.0 -- --domain
+dotnet run --project src/Cli -f net10.0 -- --domain data\sample.csv
+```
 
 Сутності (`src/Core/Domain`):
-- **Order** — замовлення (агрегат): `Create`, `AddLine`, `Confirm`, `ToDto`/`FromDto`;
+- **Order** — замовлення (агрегат): `Create`, `AddLine`, `Confirm`, `Cancel`, `ToDto`/`FromDto`;
+  статус `OrderStatus` (додаткове завдання 3): `Draft` → `Confirmed`, `Draft` → `Cancelled`, `Confirmed` → `Cancelled`,
+  допустимі переходи перевіряються через switch expression;
 - **OrderLine** — рядок замовлення, створюється лише через `Order.AddLine`;
- - **Product** — товар: `Create`, `ToDto`/`FromDto`, `FromImport` (результат імпорту → сутності + помилки).
+- **Product** — товар: `Create`, `ToDto`/`FromDto`, `FromImport` (результат імпорту → сутності + помилки).
 
-  `Product.FromImport` (додаткове завдання 1, лаб4) бере `ImportResult<ProductDto>` і повертає `ImportResult<Product>`:
-  до помилок імпорту додаються записи, що не пройшли інваріанти домену.
-  За замовчуванням у режимі `--domain` береться `data/sample.json`.
+`Product.FromImport` (додаткове завдання 1) бере `ImportResult<ProductDto>` і повертає `ImportResult<Product>`:
+до помилок імпорту додаються записи, що не пройшли інваріанти домену.
+За замовчуванням у режимі `--domain` береться `data/sample.json`.
 
 Публічних конструкторів немає, стан змінюють лише методи, рядки назовні — `IReadOnlyList`.
 `FromDto` відновлює сутність через ті самі фабрики й методи, тобто ті самі перевірки.
@@ -101,12 +103,17 @@ Domain не залежить ні від `Console`, ні від `File`, ні в�
 | Товар у рядку (Id, назва) не порожній | `ArgumentException` | `Order.AddLine` |
 | Кількість у рядку > 0 | `ArgumentOutOfRangeException` | `Order.AddLine` |
 | Ціна в рядку ≥ 0 | `ArgumentOutOfRangeException` | `Order.AddLine` |
-| Не можна додавати рядки до підтвердженого замовлення | `InvalidOperationException` | `Order.AddLine` |
+| Рядки додаються лише до чернетки (`Draft`) | `InvalidOperationException` | `Order.AddLine` |
 | Порожнє замовлення не можна підтвердити | `InvalidOperationException` | `Order.Confirm` |
-| Не можна підтвердити замовлення повторно | `InvalidOperationException` | `Order.Confirm` |
+| Лише допустимі переходи статусу (не підтвердити повторно, не змінити скасоване) | `InvalidOperationException` | `Order.Confirm` / `Order.Cancel` |
+| Статус у DTO — один із `Draft`, `Confirmed`, `Cancelled` | `ArgumentException` | `Order.FromDto` |
 | Id і назва товару не порожні | `ArgumentException` | `Product.Create` |
 | Ціна товару ≥ 0 | `ArgumentOutOfRangeException` | `Product.Create` |
-| У клієнта не більше 3 незавершених замовлень | `InvalidOperationException` | `OrderLimitPolicy.EnsureCanOpen` |
+| У клієнта не більше 3 незавершених (`Draft`) замовлень | `InvalidOperationException` | `OrderLimitPolicy.EnsureCanOpen` |
+
+Останнє правило (додаткове завдання 2) охоплює дві сутності: клієнта і всі його замовлення.
+Окреме `Order` бачить лише себе, тому правило винесено з сутності в `OrderLimitPolicy`;
+на тижні 5 його викликатиме сервіс, який отримає замовлення клієнта зі сховища.
 
 ## Інформація про середовище (лаб. 1-2)
 
