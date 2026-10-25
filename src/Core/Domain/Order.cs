@@ -8,7 +8,7 @@ public sealed class Order
 
     public string Id { get; }
     public string CustomerId { get; }
-    public bool IsConfirmed { get; private set; }
+    public OrderStatus Status { get; private set; }
     public IReadOnlyList<OrderLine> Lines => _lines.AsReadOnly();
     public decimal Total => _lines.Sum(l => l.Total);
 
@@ -16,6 +16,7 @@ public sealed class Order
     {
         Id = id;
         CustomerId = customerId;
+        Status = OrderStatus.Draft;
     }
 
     
@@ -31,9 +32,9 @@ public sealed class Order
 
     public void AddLine(string productId, string name, decimal price, int quantity)
     {
-        if (IsConfirmed)
+        if (Status != OrderStatus.Draft)
             throw new InvalidOperationException(
-                $"Замовлення {Id} вже підтверджене, рядки додавати не можна");
+                $"Замовлення {Id} має статус {Status}, рядки можна додавати лише до чернетки");
 
         OrderLine line = OrderLine.Create(productId, name, price, quantity);
         _lines.Add(line);
@@ -41,36 +42,63 @@ public sealed class Order
 
     public void Confirm()
     {
-        if (IsConfirmed)
-            throw new InvalidOperationException(
-                $"Замовлення {Id} вже підтверджене, повторне підтвердження неможливе");
-        if (_lines.Count == 0)
+        if (Status == OrderStatus.Draft && _lines.Count == 0)
             throw new InvalidOperationException(
                 $"Замовлення {Id} порожнє, підтвердити його неможливо");
 
-        IsConfirmed = true;
+        MoveTo(OrderStatus.Confirmed);
     }
 
+    public void Cancel() => MoveTo(OrderStatus.Cancelled);
+
     
+    private static bool IsAllowed(OrderStatus from, OrderStatus to) => (from, to) switch
+    {
+        (OrderStatus.Draft, OrderStatus.Confirmed) => true,
+        (OrderStatus.Draft, OrderStatus.Cancelled) => true,
+        (OrderStatus.Confirmed, OrderStatus.Cancelled) => true,
+        _ => false
+    };
+
+    private void MoveTo(OrderStatus next)
+    {
+        if (!IsAllowed(Status, next))
+            throw new InvalidOperationException(
+                $"Замовлення {Id}: перехід {Status} -> {next} неможливий");
+
+        Status = next;
+    }
+
+
     public OrderDto ToDto() => new(
         Id,
         CustomerId,
-        IsConfirmed,
+        Status.ToString(),
         _lines.Select(l => new OrderLineDto(l.ProductId, l.Name, l.Price, l.Quantity)).ToList());
 
-
+    
     public static Order FromDto(OrderDto dto)
     {
+        if (!Enum.TryParse(dto.Status, ignoreCase: true, out OrderStatus status) || !Enum.IsDefined(status))
+            throw new ArgumentException($"Невідомий статус замовлення {dto.Id}: '{dto.Status}'", nameof(dto));
+
         Order order = Create(dto.Id, dto.CustomerId);
         foreach (OrderLineDto line in dto.Lines ?? [])
             order.AddLine(line.ProductId, line.Name, line.Price, line.Quantity);
 
-        if (dto.IsConfirmed)
-            order.Confirm();
+        switch (status)
+        {
+            case OrderStatus.Confirmed:
+                order.Confirm();
+                break;
+            case OrderStatus.Cancelled:
+                order.Cancel();
+                break;
+        }
 
         return order;
     }
 
     public override string ToString() =>
-        $"{Id} (клієнт {CustomerId}) [{(IsConfirmed ? "підтверджене" : "чернетка")}] — рядків: {_lines.Count}, сума {Total:F2}";
+        $"{Id} (клієнт {CustomerId}) [{Status}] — рядків: {_lines.Count}, сума {Total:F2}";
 }

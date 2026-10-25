@@ -60,7 +60,8 @@ if (args.Contains("--domain"))
     TryDo("рядок до підтвердженого замовлення", () => order.AddLine("P-003", "Клавіатура механічна", 1899.00m, 1));
     TryDo("повторне підтвердження", () => order.Confirm());
     TryDo("товар з порожньою назвою", () => Product.Create("P-005", "   ", 100m));
-    TryDo("FromDto: підтверджене без рядків", () => Order.FromDto(new OrderDto("O-003", "C-001", true, [])));
+    TryDo("FromDto: підтверджене без рядків", () => Order.FromDto(new OrderDto("O-003", "C-001", "Confirmed", [])));
+    TryDo("FromDto: невідомий статус", () => Order.FromDto(new OrderDto("O-004", "C-001", "Shipped", [])));
     Console.WriteLine("Стан після всіх відмов:");
     Console.WriteLine($"  {order}");
     Console.WriteLine($"  {draft}");
@@ -97,6 +98,17 @@ if (args.Contains("--domain"))
     OrderLimitPolicy.EnsureCanOpen("C-010", customerOrders);
     customerOrders.Add(Order.Create("O-104", "C-010"));
     Console.WriteLine($"  Після підтвердження {customerOrders[0].Id} відкрито O-104");
+    Console.WriteLine();
+
+    Console.WriteLine("=== Додаткове 3: переходи статусів ===");
+    Order cancelled = Order.Create("O-201", "C-001");
+    cancelled.AddLine("P-006", "Веб-камера HD", 899.00m, 1);
+    cancelled.Cancel();
+    Console.WriteLine($"  Draft -> Cancelled: {cancelled}");
+    TryDo("Cancelled -> Confirmed", () => cancelled.Confirm());
+    TryDo("Cancelled -> Cancelled", () => cancelled.Cancel());
+    order.Cancel();
+    Console.WriteLine($"  Confirmed -> Cancelled: {order}");
 
     return 0;
 }

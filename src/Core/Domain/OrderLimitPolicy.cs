@@ -13,7 +13,7 @@ public static class OrderLimitPolicy
             throw new ArgumentException("Клієнт обов'язковий", nameof(customerId));
 
         string id = customerId.Trim();
-        int drafts = customerOrders.Count(o => o.CustomerId == id && !o.IsConfirmed);
+        int drafts = customerOrders.Count(o => o.CustomerId == id && o.Status == OrderStatus.Draft);
 
         if (drafts >= MaxDraftOrders)
             throw new InvalidOperationException(

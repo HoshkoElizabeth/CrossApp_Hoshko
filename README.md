@@ -28,10 +28,11 @@ CrossApp_Hoshko/
         OrderLineDto.cs
         ImportResult.cs
         MixedImportResult.cs
-      Domain/             (сутності з поведінкою та інваріантами)
+     Domain/             (сутності з поведінкою та інваріантами)
         Product.cs
         Order.cs
         OrderLine.cs
+        OrderStatus.cs
         OrderLimitPolicy.cs
       Import/
         ProductCsvImporter.cs
