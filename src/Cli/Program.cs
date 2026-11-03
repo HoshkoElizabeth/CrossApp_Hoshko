@@ -126,6 +126,8 @@ if (!args.Contains("--mixed") && !args.Any(a => !a.StartsWith("--")))
     IOrderStore store = useFile
         ? new FileOrderStore(dataPath)
         : new InMemoryOrderStore(SampleData.Orders());
+    if (args.Contains("--cache"))
+        store = new CachingOrderStore(store);   // дод. 1: декоратор поверх будь-якого сховища
     var service = new OrderService(store);
 
     Console.WriteLine($"Сховище: {store.GetType().Name}");
