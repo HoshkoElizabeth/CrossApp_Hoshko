@@ -1,9 +1,12 @@
 ﻿using System.Text;
 using System.Text.Json;
 using Core;
+using Core.Abstractions;
 using Core.Domain;
 using Core.Dto;
 using Core.Import;
+using Core.Services;
+using Core.Storage;
 
 Console.OutputEncoding = Encoding.UTF8;
 
@@ -110,6 +113,32 @@ if (args.Contains("--domain"))
     TryDo("Cancelled -> Cancelled", () => cancelled.Cancel());
     order.Cancel();
     Console.WriteLine($"  Confirmed -> Cancelled: {order}");
+
+    return 0;
+}
+
+// ---- Лабораторна 5: сервісний шар, два сховища, ручний DI ----
+if (!args.Contains("--mixed") && !args.Any(a => !a.StartsWith("--")))
+{
+    // Composition root: єдине місце з конкретними класами
+    bool useFile = args.Contains("--file");
+    string dataPath = Path.Combine(AppContext.BaseDirectory, "data", "orders.json");
+    IOrderStore store = useFile
+        ? new FileOrderStore(dataPath)
+        : new InMemoryOrderStore(SampleData.Orders());
+    var service = new OrderService(store);
+
+    Console.WriteLine($"Сховище: {store.GetType().Name}");
+
+    var created = service.CreateOrder("C-001");
+    service.AddLine(created.Id, "P-003", "Клавіатура механічна", 1899.00m, 1);
+    service.AddLine(created.Id, "P-008", "Кабель USB-C 2м", 149.90m, 2);
+    service.Confirm(created.Id);
+
+    foreach (Order o in service.All())
+        Console.WriteLine($" {o.Id,-9} {o.CustomerId,-6} {o.Status,-10} {o.Lines.Count,2} рядк. {o.Total,12:F2}");
+
+    Console.WriteLine($"Знайдено за id: {service.Find(created.Id)}");
 
     return 0;
 }

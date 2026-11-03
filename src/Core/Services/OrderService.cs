@@ -27,7 +27,7 @@ public sealed class OrderService(IOrderStore store)
     {
         var order = _store.GetById(orderId)
             ?? throw new InvalidOperationException($"Немає запису з id={orderId}.");
-        order.Confirm();                                   /
+        order.Confirm();                                   
         _store.Update(order);
     }
 
