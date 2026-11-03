@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using System.Text.Json;
+using Cli;
 using Core;
 using Core.Abstractions;
 using Core.Domain;
@@ -123,11 +124,19 @@ if (!args.Contains("--mixed") && !args.Any(a => !a.StartsWith("--")))
     // Composition root: єдине місце з конкретними класами
     bool useFile = args.Contains("--file");
     string dataPath = Path.Combine(AppContext.BaseDirectory, "data", "orders.json");
-    IOrderStore store = useFile
-        ? new FileOrderStore(dataPath)
-        : new InMemoryOrderStore(SampleData.Orders());
-    if (args.Contains("--cache"))
-        store = new CachingOrderStore(store);   // дод. 1: декоратор поверх будь-якого сховища
+    IOrderStore store;
+    if (args.Contains("--factory"))
+    {
+        store = StoreFactory.Create(args);      // дод. 3: те саме рішення, винесене у фабрику
+    }
+    else
+    {
+        store = useFile
+            ? new FileOrderStore(dataPath)
+            : new InMemoryOrderStore(SampleData.Orders());
+        if (args.Contains("--cache"))
+            store = new CachingOrderStore(store);   // дод. 1: декоратор поверх будь-якого сховища
+    }
     var service = new OrderService(store);
 
     Console.WriteLine($"Сховище: {store.GetType().Name}");
