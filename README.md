@@ -21,6 +21,14 @@ CrossApp_Hoshko/
     Core/
       Core.csproj
       EnvironmentInfo.cs
+      SampleData.cs       (16 зразкових замовлень для демо і для тижня 7)
+      Abstractions/       (контракти)
+        IOrderStore.cs
+      Storage/            (реалізації сховища)
+        InMemoryOrderStore.cs
+        FileOrderStore.cs
+      Services/           (бізнес-операції)
+        OrderService.cs
       Dto/                (формат даних)
         ProductDto.cs
         CustomerDto.cs
@@ -28,7 +36,7 @@ CrossApp_Hoshko/
         OrderLineDto.cs
         ImportResult.cs
         MixedImportResult.cs
-     Domain/             (сутності з поведінкою та інваріантами)
+      Domain/             (сутності з поведінкою та інваріантами)
         Product.cs
         Order.cs
         OrderLine.cs
@@ -51,11 +59,11 @@ dotnet build
 
 ## Імпорт даних
 
-Запускати з кореня репозиторію. Без аргументів імпортується `data/sample.csv`.
+Запускати з кореня репозиторію. Шлях до файлу вказується явно (без аргументів запускається сценарій лаб. 5).
 Імпортер товарів обирається за розширенням файлу: `.csv` або `.json`.
 
 ```
-dotnet run --project src/Cli -f net10.0
+dotnet run --project src/Cli -f net10.0 -- data\sample.csv
 dotnet run --project src/Cli -f net10.0 -- data\sample.json
 dotnet run --project src/Cli -f net10.0 -- шлях\до\файлу.csv
 dotnet run --project src/Cli -f net10.0 -- --mixed
@@ -113,7 +121,38 @@ Domain не залежить ні від `Console`, ні від `File`, ні в�
 
 Останнє правило (додаткове завдання 2) охоплює дві сутності: клієнта і всі його замовлення.
 Окреме `Order` бачить лише себе, тому правило винесено з сутності в `OrderLimitPolicy`;
-на тижні 5 його викликатиме сервіс, який отримає замовлення клієнта зі сховища.
+з лаб. 5 його викликає `OrderService.CreateOrder`, отримуючи замовлення клієнта зі сховища.
+
+## Сервісний шар і два сховища (лаб. 5)
+
+```
+dotnet run --project src/Cli -f net10.0
+dotnet run --project src/Cli -f net10.0 -- --file
+```
+
+- **Інтерфейс:** `IOrderStore` (`src/Core/Abstractions`) — `List`, `GetById`, `Add`, `Update`, `Remove`;
+- **Реалізації:** `InMemoryOrderStore` (словник у пам'яті, початкові дані `SampleData.Orders()`)
+  і `FileOrderStore` (JSON-файл, кеш у пам'яті, завантаження при першому зверненні, запис після кожної зміни);
+- **Сервіс:** `OrderService` (`src/Core/Services`) — `CreateOrder`, `AddLine`, `Confirm`, `All`, `Find`;
+  залежність `IOrderStore` передається через конструктор.
+
+Composition root — `Program.cs`: лише там створюються конкретні сховища і сервіс.
+`Microsoft.Extensions.DependencyInjection` не підключено.
+
+```
+Cli → OrderService → IOrderStore → InMemoryOrderStore | FileOrderStore
+```
+
+Режими:
+- без `--file` — `Сховище: InMemoryOrderStore`, після виходу дані зникають;
+- з `--file` — `Сховище: FileOrderStore`, створюється `data/orders.json` поруч зі збіркою
+  (`src/Cli/bin/Debug/net10.0/data/orders.json`), повторний запуск бачить попередні записи.
+
+Файл зберігає список `OrderDto` разом із рядками (`OrderLineDto`): агрегат зберігається як одне ціле.
+Мапінг — `Order.ToDto` / `Order.FromDto`, тож при завантаженні інваріанти перевіряються знову.
+
+Сценарій: створити замовлення, додати рядки, підтвердити, показати список, знайти за id.
+Відмова: рядок до неіснуючого id і дубль id — виняток перехоплюється в Cli, друкується зрозуміле повідомлення.
 
 ## Інформація про середовище (лаб. 1-2)
 
