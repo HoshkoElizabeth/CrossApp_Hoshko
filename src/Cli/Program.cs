@@ -142,6 +142,12 @@ if (!args.Contains("--mixed") && !args.Any(a => !a.StartsWith("--")))
 
     Console.WriteLine($"Знайдено за id: {service.Find(created.Id)}");
 
+    // Дод. 2: пошук з умовою Func<Order, bool>
+    var bigConfirmed = service.Search(o => o.Status == OrderStatus.Confirmed && o.Total > 5000m);
+    Console.WriteLine($"Підтверджені на суму > 5000: {string.Join(", ", bigConfirmed.Select(o => o.Id))}");
+
+    var draftsC004 = service.Search(o => o.CustomerId == "C-004" && o.Status == OrderStatus.Draft);
+    Console.WriteLine($"Чернетки клієнта C-004: {string.Join(", ", draftsC004.Select(o => o.Id))}");
 
     // Сценарій відмови: неіснуючий id і дубль id
     try
