@@ -27,6 +27,7 @@ CrossApp_Hoshko/
       Storage/            (реалізації сховища)
         InMemoryOrderStore.cs
         FileOrderStore.cs
+        CachingOrderStore.cs   (дод. завдання 1)
       Services/           (бізнес-операції)
         OrderService.cs
       Dto/                (формат даних)
@@ -48,7 +49,8 @@ CrossApp_Hoshko/
         MixedCsvImporter.cs
     Cli/
       Cli.csproj (ProjectReference на Core)
-      Program.cs
+      Program.cs          (composition root + сценарії)
+      StoreFactory.cs     (дод. завдання 3)
 ```
 
 ## Збірка
@@ -128,15 +130,17 @@ Domain не залежить ні від `Console`, ні від `File`, ні в�
 ```
 dotnet run --project src/Cli -f net10.0
 dotnet run --project src/Cli -f net10.0 -- --file
+dotnet run --project src/Cli -f net10.0 -- --cache
+dotnet run --project src/Cli -f net10.0 -- --factory --file --cache
 ```
 
 - **Інтерфейс:** `IOrderStore` (`src/Core/Abstractions`) — `List`, `GetById`, `Add`, `Update`, `Remove`;
 - **Реалізації:** `InMemoryOrderStore` (словник у пам'яті, початкові дані `SampleData.Orders()`)
   і `FileOrderStore` (JSON-файл, кеш у пам'яті, завантаження при першому зверненні, запис після кожної зміни);
-- **Сервіс:** `OrderService` (`src/Core/Services`) — `CreateOrder`, `AddLine`, `Confirm`, `All`, `Find`;
+- **Сервіс:** `OrderService` (`src/Core/Services`) — `CreateOrder`, `AddLine`, `Confirm`, `All`, `Find`, `Search`;
   залежність `IOrderStore` передається через конструктор.
 
-Composition root — `Program.cs`: лише там створюються конкретні сховища і сервіс.
+Composition root — `Program.cs` (і `StoreFactory` з дод. завдання 3, теж у Cli): лише там створюються конкретні сховища і сервіс.
 `Microsoft.Extensions.DependencyInjection` не підключено.
 
 ```
@@ -153,6 +157,23 @@ Cli → OrderService → IOrderStore → InMemoryOrderStore | FileOrderStore
 
 Сценарій: створити замовлення, додати рядки, підтвердити, показати список, знайти за id.
 Відмова: рядок до неіснуючого id і дубль id — виняток перехоплюється в Cli, друкується зрозуміле повідомлення.
+
+### Додаткові завдання
+
+1. **`CachingOrderStore`** (`src/Core/Storage`) — декоратор: приймає будь-який `IOrderStore` у конструкторі
+   і сам реалізує `IOrderStore`. Нова поведінка — кеш читань: повторні `List`/`GetById` не доходять
+   до внутрішнього сховища, `Add`/`Update`/`Remove` передаються далі й скидають кеш. Вмикається `--cache`
+   (разом з `--file` — кеш поверх файлового сховища).
+2. **`OrderService.Search(Func<Order, bool>)`** — умову пошуку передає викликач лямбдою,
+   контракт `IOrderStore` не змінюється. У сценарії: підтверджені на суму > 5000 і чернетки клієнта C-004.
+3. **`StoreFactory.Create(args)`** (`src/Cli`) — вибір реалізації винесено з `Program.cs`, вмикається `--factory`.
+   Порівняння з варіантом «усе в Program.cs»:
+   - усе в `Program.cs` — вибір видно одразу в точці входу, але з кожним новим прапорцем (`--file`, `--cache`)
+     код розростається й змішується зі сценарієм;
+   - `StoreFactory` — рішення «яке сховище створити» в одному іменованому методі, `Program.cs` лише викликає
+     `Create(args)`, фабрику можна перевикористати;
+   - в обох варіантах конкретні класи лишаються в Cli (composition root), а `OrderService` отримує `IOrderStore`
+     і різниці не помічає.
 
 ## Інформація про середовище (лаб. 1-2)
 
