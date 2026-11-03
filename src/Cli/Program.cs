@@ -140,6 +140,26 @@ if (!args.Contains("--mixed") && !args.Any(a => !a.StartsWith("--")))
 
     Console.WriteLine($"Знайдено за id: {service.Find(created.Id)}");
 
+
+    // Сценарій відмови: неіснуючий id і дубль id
+    try
+    {
+        service.AddLine("O-404", "P-006", "Веб-камера HD", 899.00m, 1);
+    }
+    catch (InvalidOperationException ex)
+    {
+        Console.WriteLine($"Помилка: не вдалося додати рядок. {ex.Message}");
+    }
+
+    try
+    {
+        store.Add(Order.Create(created.Id, "C-002"));
+    }
+    catch (InvalidOperationException ex)
+    {
+        Console.WriteLine($"Помилка: не вдалося додати замовлення. {ex.Message}");
+    }
+
     return 0;
 }
 
