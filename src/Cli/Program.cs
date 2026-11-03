@@ -38,6 +38,7 @@ if (args.Contains("--domain"))
 {
     Console.WriteLine("=== Сценарій 1: успіх ===");
     Order order = Order.Create("O-001", "C-001");
+    //order.Status = OrderStatus.Confirmed;
     order.AddLine("P-001", "Ноутбук ASUS VivoBook 15", 24999.99m, 1);
     order.AddLine("P-002", "Миша бездротова Logitech", 499.50m, 2);
     Console.WriteLine(order);
