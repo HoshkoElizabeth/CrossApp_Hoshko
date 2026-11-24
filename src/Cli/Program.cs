@@ -11,7 +11,6 @@ using Core.Import;
 using Core.Services;
 using Core.Storage;
 
-
 Console.OutputEncoding = Encoding.UTF8;
 
 // ---- Лабораторні 1-2: інформація про середовище (--env текстом, --json у JSON) ----
@@ -121,7 +120,6 @@ if (args.Contains("--domain"))
     return 0;
 }
 
-
 // ---- Лабораторна 6, дод. 1: INotificationSink через конструктор замість події (--sinks) ----
 if (args.Contains("--sinks"))
 {
@@ -150,7 +148,7 @@ if (args.Contains("--events"))
 {
     var service = new OrderService(StoreFactory.Create(args));   // --file / --cache працюють і тут
 
-    // перший підписник — локальний метод: консоль + файл logs/app.log
+    // Крок 3: перший підписник — локальний метод: консоль + файл logs/app.log
     string logPath = Path.Combine(AppContext.BaseDirectory, "logs", "app.log");
     Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
 
@@ -170,17 +168,17 @@ if (args.Contains("--events"))
 
     service.Changed += OnOrderChanged;
 
-    // другий підписник — лямбда із замиканням над changes; викликається після першого
+    // Крок 4: другий підписник — лямбда із замиканням над changes; викликається після першого
     int changes = 0;
     service.Changed += (_, _) => Console.WriteLine($"  лічильник подій: {++changes}");
 
-    // успішні операції — по одному повідомленню на кожну
+    // Крок 5: успішні операції — по одному повідомленню на кожну
     Console.WriteLine("=== Підписано два обробники ===");
     var created = service.CreateOrder("C-001");
     service.AddLine(created.Id, "P-003", "Клавіатура механічна", 1899.00m, 1);
     service.AddLine(created.Id, "P-008", "Кабель USB-C 2м", 149.90m, 2);
 
-    // відмова — виняток є, рядка події немає, лічильник не змінився
+    // Крок 6: відмова — виняток є, рядка події немає, лічильник не змінився
     Console.WriteLine("=== Сценарій відмови ===");
     try
     {
@@ -207,7 +205,7 @@ if (args.Contains("--events"))
     Console.WriteLine($"Подій отримано: {changes}");          // +1 лише від лямбди-лічильника
     Console.WriteLine($"Стан замовлення: {service.Find(created.Id)}");
 
-    // Func замість події там, де потрібне значення у відповідь
+    // Крок 7: Func замість події там, де потрібне значення у відповідь
     Console.WriteLine("=== Search(o => o.Total < 1000m) ===");
     foreach (Order o in service.Search(o => o.Total < 1000m))
         Console.WriteLine($" {o.Id,-9} {o.Status,-10} {o.Total,10:F2}");
@@ -304,7 +302,11 @@ if (mixed)
 
 // Додаткове завдання 3(1): імпортер за розширенням файлу
 // Додаткове завдання 1 (лаб. 3): імпортер за розширенням файлу
-ImportResult<ProductDto>? result = LoadProducts(path);
+// Дод. 2 (лаб. 6): з --report пропущені рядки виводяться одразу під час імпорту через Action<string>
+Action<string>? onSkipped = args.Contains("--report")
+    ? reason => Console.WriteLine($"  [звіт] пропущено {reason}")
+    : null;
+ImportResult<ProductDto>? result = LoadProducts(path, onSkipped);
 if (result is null)
 {
     Console.WriteLine($"Непідтримуваний формат файлу: {Path.GetExtension(path)} (очікую .csv або .json)");
@@ -315,7 +317,8 @@ Console.WriteLine($"Завантажено записів: {result.Items.Count}"
 foreach (ProductDto p in result.Items.Take(5))
     Console.WriteLine($"  {p.Id,-6} {p.Name,-28} {p.Price,10:F2}");
 
-PrintErrors(result.Errors);
+if (onSkipped is null)
+    PrintErrors(result.Errors);     // без --report — як у лаб. 3: список після імпорту
 
 // Додаткове завдання 3(3): статистика імпорту одним рядком
 int total = result.Items.Count + result.Errors.Count;
@@ -324,11 +327,11 @@ Console.WriteLine($"Статистика: усього {total} / прийнят�
 
 return 0;
 
-static ImportResult<ProductDto>? LoadProducts(string path) =>
+static ImportResult<ProductDto>? LoadProducts(string path, Action<string>? onSkipped = null) =>
     Path.GetExtension(path).ToLowerInvariant() switch
     {
-        ".csv" => ProductCsvImporter.Load(path),
-        ".json" => ProductJsonImporter.Load(path),
+        ".csv" => ProductCsvImporter.Load(path, onSkipped),
+        ".json" => ProductJsonImporter.Load(path, onSkipped),
         _ => null
     };
 

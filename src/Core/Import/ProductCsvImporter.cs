@@ -10,7 +10,8 @@ public static class ProductCsvImporter
 
     private const NumberStyles PriceStyle = NumberStyles.AllowDecimalPoint | NumberStyles.AllowLeadingSign;
 
-    public static ImportResult<ProductDto> Load(string path)
+    // onSkipped — дод. 2 (лаб. 6): викликається для кожного пропущеного рядка; що з ним робити, вирішує викликач
+    public static ImportResult<ProductDto> Load(string path, Action<string>? onSkipped = null)
     {
         var items = new List<ProductDto>();
         var errors = new List<string>();
@@ -32,7 +33,9 @@ public static class ProductCsvImporter
                     items.Add(ok.Value);
                     break;
                 case ParseFailed failed:
-                    errors.Add($"рядок {number}: {failed.Reason}");
+                    string error = $"рядок {number}: {failed.Reason}";
+                    errors.Add(error);
+                    onSkipped?.Invoke(error);
                     break;
             }
         }

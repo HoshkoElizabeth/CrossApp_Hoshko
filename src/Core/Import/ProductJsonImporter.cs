@@ -8,7 +8,8 @@ public static class ProductJsonImporter
 {
     private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true };
 
-    public static ImportResult<ProductDto> Load(string path)
+    // onSkipped — дод. 2 (лаб. 6): викликається для кожного пропущеного елемента; що з ним робити, вирішує викликач
+    public static ImportResult<ProductDto> Load(string path, Action<string>? onSkipped = null)
     {
         string json = File.ReadAllText(path, Encoding.UTF8);
 
@@ -19,7 +20,9 @@ public static class ProductJsonImporter
         }
         catch (JsonException ex)
         {
-            return new ImportResult<ProductDto>([], [$"некоректний JSON: {ex.Message}"]);
+            string error = $"некоректний JSON: {ex.Message}";
+            onSkipped?.Invoke(error);
+            return new ImportResult<ProductDto>([], [error]);
         }
 
         var items = new List<ProductDto>();
@@ -33,12 +36,15 @@ public static class ProductJsonImporter
             {
                 case null:
                     errors.Add($"{where}: порожній елемент");
+                    onSkipped?.Invoke(errors[^1]);
                     break;
                 case { Id: null or "" } or { Name: null or "" }:
                     errors.Add($"{where}: Id або назва порожні");
+                    onSkipped?.Invoke(errors[^1]);
                     break;
                 case { Price: < 0 } p:
                     errors.Add($"{where}: ціна {p.Price} від'ємна");
+                    onSkipped?.Invoke(errors[^1]);
                     break;
                 case var p:
                     items.Add(p);
