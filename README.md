@@ -24,6 +24,10 @@ CrossApp_Hoshko/
       SampleData.cs       (16 зразкових замовлень для демо і для тижня 7)
       Abstractions/       (контракти)
         IOrderStore.cs
+        INotificationSink.cs   (лаб. 6, дод. завдання 1)
+      Events/             (лаб. 6: доменні події)
+        OrderChangeKind.cs
+        OrderChangedEventArgs.cs
       Storage/            (реалізації сховища)
         InMemoryOrderStore.cs
         FileOrderStore.cs
@@ -51,6 +55,10 @@ CrossApp_Hoshko/
       Cli.csproj (ProjectReference на Core)
       Program.cs          (composition root + сценарії)
       StoreFactory.cs     (дод. завдання 3)
+      OrderChangeFormat.cs (лаб. 6: формат рядка журналу)
+      Sinks/              (лаб. 6, дод. завдання 1)
+        ConsoleSink.cs
+        FileSink.cs
 ```
 
 ## Збірка
@@ -61,7 +69,7 @@ dotnet build
 
 ## Імпорт даних
 
-Запускати з кореня репозиторію. Шлях до файлу вказується явно (без аргументів запускається сценарій лаб. 5).
+Запускати з кореня репозиторію. Шлях до файлу вказується явно (без аргументів запускається сценарій лаб. 5). З `--report` пропущені рядки друкуються під час імпорту (лаб. 6, дод. 2).
 Імпортер товарів обирається за розширенням файлу: `.csv` або `.json`.
 
 ```
@@ -174,6 +182,62 @@ Cli → OrderService → IOrderStore → InMemoryOrderStore | FileOrderStore
      `Create(args)`, фабрику можна перевикористати;
    - в обох варіантах конкретні класи лишаються в Cli (composition root), а `OrderService` отримує `IOrderStore`
      і різниці не помічає.
+
+## Доменні події (лаб. 6)
+
+```
+dotnet run --project src/Cli -f net10.0 -- --events
+dotnet run --project src/Cli -f net10.0 -- --events --file
+dotnet run --project src/Cli -f net10.0 -- --sinks
+dotnet run --project src/Cli -f net10.0 -- data\sample.csv --report
+```
+
+Події домену «Замовлення» (`src/Core/Events`):
+
+| Подія (`OrderChangeKind`) | Коли виникає |
+|---|---|
+| `OrderCreated` | `OrderService.CreateOrder` — замовлення створено і збережено |
+| `LineAdded` | `OrderService.AddLine` — рядок додано і збережено |
+| `OrderConfirmed` | `OrderService.Confirm` — замовлення підтверджено і збережено |
+
+Дані події — `OrderChangedEventArgs : EventArgs`: `OrderId`, `Kind`, `LinesCount`, `Total` (нова сума), `At`.
+
+- `OrderService` оголошує `public event EventHandler<OrderChangedEventArgs>? Changed`
+  і піднімає її одним приватним методом `OnChanged` через `Changed?.Invoke(...)`;
+- `OnChanged` викликається **після** успішної зміни і `_store.Add/Update`: якщо інваріант кинув виняток,
+  до `OnChanged` виконання не доходить і сповіщення немає;
+- Core не пише ні в консоль, ні у файл журналу (пошук `Console` і `logs` у `src/Core` нічого не знаходить).
+
+Сценарій `--events` у `Program.cs`:
+1. перший підписник — локальний метод `OnOrderChanged`: рядок у консоль і в `logs/app.log`
+   (`Path.Combine(AppContext.BaseDirectory, "logs", "app.log")`, каталог створює `Directory.CreateDirectory`;
+   помилка запису перехоплюється в обробнику, щоб не зламати операцію);
+2. другий підписник — лямбда `(_, _) => ...` із замиканням над локальною змінною `changes`;
+   обробники викликаються в порядку підписки: спершу рядок журналу, потім лічильник;
+3. створення замовлення і два рядки — три події;
+4. відмова: рядок з кількістю 0 (інваріант) і рядок до `O-404` — виняток є, рядка події немає, лічильник не змінився;
+5. `service.Changed -= OnOrderChanged`, потім `Confirm` — статус змінився, у консолі й журналі рядка немає,
+   лічильник +1 (лямбда лишилась підписаною);
+6. `service.Search(o => o.Total < 1000m)` — `Func<Order, bool>`: тут потрібне значення у відповідь, тому не подія.
+
+Журнал: `src/Cli/bin/Debug/net10.0/logs/app.log` (дописується з кожним запуском).
+
+Одержувачі сповіщень зараз — консоль і `logs/app.log`; на тижні 10 — логер проєкту Api,
+на тижні 12 — компонент Blazor, що оновлює таблицю. Core для цього змінювати не доведеться.
+
+### Додаткові завдання
+
+1. **`INotificationSink`** (`src/Core/Abstractions`) з реалізаціями `ConsoleSink` і `FileSink` (`src/Cli/Sinks`).
+   Cli передає їх у `OrderService` через конструктор (`new OrderService(store, sinks)`, ручний DI тижня 5), режим `--sinks`.
+   Параметр необов'язковий, тож `new OrderService(store)` з лаб. 5 працює як раніше.
+   Порівняння з подією:
+   - **подія** — сервіс не знає про одержувачів; підписка й відписка (`+=`/`-=`) у будь-який момент, з будь-якого місця,
+     обробником може бути лямбда; але підписку легко забути зняти, а порядок і склад одержувачів видно лише в коді Cli;
+   - **sink через конструктор** — одержувачі явно видно в сигнатурі і задаються в composition root разом зі сховищем;
+     але список фіксований на час життя сервісу, а для кожного одержувача потрібен окремий клас з інтерфейсом.
+2. **`Action<string>? onSkipped`** у `ProductCsvImporter.Load` і `ProductJsonImporter.Load` — викликається для кожного
+   пропущеного рядка. З `--report` Cli передає лямбду, яка друкує `[звіт] пропущено ...` одразу під час імпорту;
+   без `--report` поведінка лаб. 3 не змінилась.
 
 ## Інформація про середовище (лаб. 1-2)
 
