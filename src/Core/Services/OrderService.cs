@@ -1,5 +1,6 @@
 ﻿using Core.Abstractions;
 using Core.Domain;
+using Core.Events;
 
 namespace Core.Services;
 
@@ -7,11 +8,17 @@ public sealed class OrderService(IOrderStore store)
 {
     private readonly IOrderStore _store = store ?? throw new ArgumentNullException(nameof(store));
 
+    // Лаб. 6: сповіщення про успішні зміни; як їх обробити — вирішує той, хто підписався
+    public event EventHandler<OrderChangedEventArgs>? Changed;
+
+    private void OnChanged(Order order, OrderChangeKind kind) =>
+        Changed?.Invoke(this, new OrderChangedEventArgs(order.Id, kind, order.Lines.Count, order.Total));
     public Order CreateOrder(string customerId)
     {
         OrderLimitPolicy.EnsureCanOpen(customerId, _store.List());   
         var order = Order.Create(Guid.NewGuid().ToString("N")[..8], customerId);
-        _store.Add(order);       
+        _store.Add(order);
+        OnChanged(order, OrderChangeKind.OrderCreated);              
         return order;
     }
 
@@ -21,6 +28,7 @@ public sealed class OrderService(IOrderStore store)
             ?? throw new InvalidOperationException($"Немає запису з id={orderId}.");
         order.AddLine(productId, name, price, quantity);   
         _store.Update(order);
+        OnChanged(order, OrderChangeKind.LineAdded);
     }
 
     public void Confirm(string orderId)
@@ -29,6 +37,7 @@ public sealed class OrderService(IOrderStore store)
             ?? throw new InvalidOperationException($"Немає запису з id={orderId}.");
         order.Confirm();                                   
         _store.Update(order);
+        OnChanged(order, OrderChangeKind.OrderConfirmed);
     }
 
     public IReadOnlyList<Order> All() => _store.List();
