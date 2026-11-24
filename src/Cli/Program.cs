@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using System.Text.Json;
 using Cli;
+using Cli.Sinks;
 using Core;
 using Core.Abstractions;
 using Core.Domain;
@@ -120,12 +121,36 @@ if (args.Contains("--domain"))
     return 0;
 }
 
+
+// ---- Лабораторна 6, дод. 1: INotificationSink через конструктор замість події (--sinks) ----
+if (args.Contains("--sinks"))
+{
+    string logPath = Path.Combine(AppContext.BaseDirectory, "logs", "app.log");
+    INotificationSink[] sinks = [new ConsoleSink(), new FileSink(logPath)];
+    var service = new OrderService(StoreFactory.Create(args), sinks);   // жодного +=, одержувачі задані при створенні
+
+    var created = service.CreateOrder("C-002");
+    service.AddLine(created.Id, "P-006", "Веб-камера HD", 899.00m, 1);
+    service.Confirm(created.Id);
+    try
+    {
+        service.Confirm(created.Id);                          // повторне підтвердження — інваріант, сповіщення немає
+    }
+    catch (InvalidOperationException ex)
+    {
+        Console.WriteLine($"Помилка: {ex.Message}");
+    }
+
+    Console.WriteLine($"Журнал: {logPath}");
+    return 0;
+}
+
 // ---- Лабораторна 6: доменні події, підписка/відписка, Func-пошук (--events) ----
 if (args.Contains("--events"))
 {
     var service = new OrderService(StoreFactory.Create(args));   // --file / --cache працюють і тут
 
-    // Крок 3: перший підписник — локальний метод: консоль + файл logs/app.log
+    // перший підписник — локальний метод: консоль + файл logs/app.log
     string logPath = Path.Combine(AppContext.BaseDirectory, "logs", "app.log");
     Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
 
@@ -145,17 +170,17 @@ if (args.Contains("--events"))
 
     service.Changed += OnOrderChanged;
 
-    // Крок 4: другий підписник — лямбда із замиканням над changes; викликається після першого
+    // другий підписник — лямбда із замиканням над changes; викликається після першого
     int changes = 0;
     service.Changed += (_, _) => Console.WriteLine($"  лічильник подій: {++changes}");
 
-    // Крок 5: успішні операції — по одному повідомленню на кожну
+    // успішні операції — по одному повідомленню на кожну
     Console.WriteLine("=== Підписано два обробники ===");
     var created = service.CreateOrder("C-001");
     service.AddLine(created.Id, "P-003", "Клавіатура механічна", 1899.00m, 1);
     service.AddLine(created.Id, "P-008", "Кабель USB-C 2м", 149.90m, 2);
 
-    // Крок 6: відмова — виняток є, рядка події немає, лічильник не змінився
+    // відмова — виняток є, рядка події немає, лічильник не змінився
     Console.WriteLine("=== Сценарій відмови ===");
     try
     {
@@ -182,7 +207,7 @@ if (args.Contains("--events"))
     Console.WriteLine($"Подій отримано: {changes}");          // +1 лише від лямбди-лічильника
     Console.WriteLine($"Стан замовлення: {service.Find(created.Id)}");
 
-    // Крок 7: Func замість події там, де потрібне значення у відповідь
+    // Func замість події там, де потрібне значення у відповідь
     Console.WriteLine("=== Search(o => o.Total < 1000m) ===");
     foreach (Order o in service.Search(o => o.Total < 1000m))
         Console.WriteLine($" {o.Id,-9} {o.Status,-10} {o.Total,10:F2}");
