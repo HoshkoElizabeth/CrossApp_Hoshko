@@ -5,9 +5,11 @@ using Core;
 using Core.Abstractions;
 using Core.Domain;
 using Core.Dto;
+using Core.Events;
 using Core.Import;
 using Core.Services;
 using Core.Storage;
+
 
 Console.OutputEncoding = Encoding.UTF8;
 
@@ -115,6 +117,77 @@ if (args.Contains("--domain"))
     order.Cancel();
     Console.WriteLine($"  Confirmed -> Cancelled: {order}");
 
+    return 0;
+}
+
+// ---- Лабораторна 6: доменні події, підписка/відписка, Func-пошук (--events) ----
+if (args.Contains("--events"))
+{
+    var service = new OrderService(StoreFactory.Create(args));   // --file / --cache працюють і тут
+
+    // Крок 3: перший підписник — локальний метод: консоль + файл logs/app.log
+    string logPath = Path.Combine(AppContext.BaseDirectory, "logs", "app.log");
+    Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+
+    void OnOrderChanged(object? sender, OrderChangedEventArgs e)
+    {
+        string line = OrderChangeFormat.Line(e);
+        Console.WriteLine(line);
+        try
+        {
+            File.AppendAllText(logPath, line + Environment.NewLine);
+        }
+        catch (IOException ex)       // помилка журналу не має ламати бізнес-операцію
+        {
+            Console.WriteLine($"  (не вдалося записати в журнал: {ex.Message})");
+        }
+    }
+
+    service.Changed += OnOrderChanged;
+
+    // Крок 4: другий підписник — лямбда із замиканням над changes; викликається після першого
+    int changes = 0;
+    service.Changed += (_, _) => Console.WriteLine($"  лічильник подій: {++changes}");
+
+    // Крок 5: успішні операції — по одному повідомленню на кожну
+    Console.WriteLine("=== Підписано два обробники ===");
+    var created = service.CreateOrder("C-001");
+    service.AddLine(created.Id, "P-003", "Клавіатура механічна", 1899.00m, 1);
+    service.AddLine(created.Id, "P-008", "Кабель USB-C 2м", 149.90m, 2);
+
+    // Крок 6: відмова — виняток є, рядка події немає, лічильник не змінився
+    Console.WriteLine("=== Сценарій відмови ===");
+    try
+    {
+        service.AddLine(created.Id, "P-006", "Веб-камера HD", 899.00m, 0);
+    }
+    catch (ArgumentOutOfRangeException ex)
+    {
+        Console.WriteLine($"Помилка: рядок не додано. {ex.Message}");
+    }
+    try
+    {
+        service.AddLine("O-404", "P-006", "Веб-камера HD", 899.00m, 1);
+    }
+    catch (InvalidOperationException ex)
+    {
+        Console.WriteLine($"Помилка: рядок не додано. {ex.Message}");
+    }
+    Console.WriteLine($"Подій отримано: {changes}");
+
+    // Відписка: OnOrderChanged знято, лямбда лишилась
+    Console.WriteLine("=== Після service.Changed -= OnOrderChanged ===");
+    service.Changed -= OnOrderChanged;
+    service.Confirm(created.Id);                              // операція виконується, у консолі й журналі рядка немає
+    Console.WriteLine($"Подій отримано: {changes}");          // +1 лише від лямбди-лічильника
+    Console.WriteLine($"Стан замовлення: {service.Find(created.Id)}");
+
+    // Крок 7: Func замість події там, де потрібне значення у відповідь
+    Console.WriteLine("=== Search(o => o.Total < 1000m) ===");
+    foreach (Order o in service.Search(o => o.Total < 1000m))
+        Console.WriteLine($" {o.Id,-9} {o.Status,-10} {o.Total,10:F2}");
+
+    Console.WriteLine($"Журнал: {logPath}");
     return 0;
 }
 
